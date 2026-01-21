@@ -203,6 +203,20 @@ make run ARGS="-mode clean -json duplicates.json -target /path/to/storage"
 └── restore_errors_only.json
 ```
 
+**Дополнительные сценарии очистки:**
+
+```bash
+# Очистка с пользовательским отчётом и отдельной папкой назначения
+make run ARGS="-mode clean -json scan.json -target /mnt/dedup -scan-report /mnt/dedup/cleanup_report.md"
+
+# Очистка со скрытыми файлами (скан отчёт уже получен ранее)
+./bin/duplicatelink -mode clean -json scan.json -target /mnt/dedup_hidden -include-hidden
+
+# Очистка нескольких папок (сканируйте по очереди, затем чистите общий таргет)
+./bin/duplicatelink -mode clean -json downloads.json -target /mnt/dedup/all
+./bin/duplicatelink -mode clean -json documents.json -target /mnt/dedup/all
+```
+
 ### 3️⃣ Режим восстановления (RESTORE)
 
 Возврат файловой системы в исходное состояние.
@@ -236,6 +250,19 @@ make run ARGS="-mode restore -restore /mnt/storage/deduplicated/restore.json"
 
 # Напрямую
 ./bin/duplicatelink -mode restore -restore /mnt/storage/deduplicated/restore.json
+```
+
+**Дополнительные сценарии восстановления:**
+
+```bash
+# Восстановление и проверка отчёта очистки
+make run ARGS="-mode restore -restore /mnt/dedup/restore.json" && cat /mnt/dedup/cleanup_report.md | head
+
+# Восстановление только после ручной проверки JSON (пример с другой директории)
+./bin/duplicatelink -mode restore -restore /backups/dedup_run_2026-01-21/restore.json
+
+# Повторное восстановление на случай, если часть файлов была заблокирована в прошлый раз
+./bin/duplicatelink -mode restore -restore /mnt/dedup/restore_errors_only.json
 ```
 
 ## Примеры использования
