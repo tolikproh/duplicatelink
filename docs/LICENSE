@@ -1,0 +1,78 @@
+MIT License
+
+Copyright (c) 2026 Tolik Proh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+# MIT Лицензия (Русский перевод)
+
+Лицензия на использование и распространение программного обеспечения
+
+Copyright (c) 2026 Tolik Proh
+
+Разрешается без ограничений распространение и использование как исходного кода, так и скомпилированных бинарных форм, с изменениями или без них, при соблюдении следующих условий:
+
+1. **Использование исходного кода** должно сопровождаться вышеуказанным уведомлением об авторских правах, настоящим списком условий и нижеприведённым отказом от гарантий.
+
+2. **Распространение в бинарной форме** должно сопровождаться вышеуказанным уведомлением об авторских правах, настоящим списком условий и нижеприведённым отказом от гарантий в документации и/или других материалах, поставляемых при распространении.
+
+3. Вы можете использовать имя автора и разработчиков только для одобрения или рекомендации продуктов, полученных из данного ПО, без предварительного письменного разрешения.
+
+## Отказ от гарантий
+
+ДАННОЕ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ПРЕДОСТАВЛЯЕТСЯ "КАК ЕСТЬ" БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ, ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ, НО НЕ ОГРАНИЧИВАЯСЬ, ГАРАНТИЯМИ ТОВАРНОГО СОСТОЯНИЯ, ПРИГОДНОСТИ ДЛЯ КОНКРЕТНОЙ ЦЕЛИ И НЕНАРУШЕНИЯ ПРАВ.
+
+## Ограничение ответственности
+
+НИ В КАКОМ СЛУЧАЕ АВТОРЫ ИЛИ ПРАВООБЛАДАТЕЛИ НЕ НЕСУТ ОТВЕТСТВЕННОСТИ ЗА:
+
+- потерю, повреждение или недоступность данных
+- использование или результаты использования данного ПО
+- прямой или косвенный ущерб
+- потерю прибыли или данных
+- прерывание деятельности
+- другой экономический ущерб
+
+ЭТО ВЕРНО ДАЖЕ ЕСЛИ АВТОРЫ БЫЛИ ПРЕДУПРЕЖДЕНЫ О ВОЗМОЖНОСТИ ТАКОГО УЩЕРБА.
+
+## Что вам разрешено делать
+
+✅ Использовать программу в личных и коммерческих целях  
+✅ Изменять исходный код под свои нужды  
+✅ Распространять копии программы  
+✅ Распространять изменённые версии  
+✅ Использовать в закрытых проектах
+
+## Что вы должны делать
+
+📋 Включить копию лицензии в распределяемый код  
+📋 Указать список изменений, если вы модифицировали программу  
+📋 Указать авторство оригинального автора
+
+## Что вам ЗАПРЕЩЕНО делать
+
+❌ Удалять уведомление об авторских правах  
+❌ Использовать название автора без разрешения для индорсемента  
+❌ Возлагать на автора ответственность за ваше использование программы
+
+---
+
+Полный текст лицензии MIT доступен на: https://opensource.org/licenses/MIT
