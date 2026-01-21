@@ -12,12 +12,16 @@ import (
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
+	dupignore "github.com/tolikproh/duplicatelink/internal/dupignore"
 	"github.com/tolikproh/duplicatelink/internal/models"
 )
 
 // FindDuplicates ищет дубликаты файлов по выбранному алгоритму хеширования
 func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string][]models.FileHash {
 	hashMap := make(map[string][]models.FileHash)
+
+	// Загружаем правила игнора, если есть .dupignore в корне
+	ign := dupignore.Load(rootPath)
 
 	// Первый проход: считаем количество файлов
 	fileCount := 0
@@ -29,6 +33,14 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 		// Пропускаем скрытые папки, если не включено сканирование скрытых
 		if info.IsDir() && !includeHidden && isHidden(info.Name(), path, rootPath) {
 			return filepath.SkipDir
+		}
+
+		// Пропускаем по правилам .dupignore
+		if dupignore.Matches(ign, rootPath, path, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		if !info.IsDir() && (info.Mode()&os.ModeSymlink) == 0 {
@@ -54,6 +66,15 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 		// Пропускаем скрытые папки, если не включено сканирование скрытых
 		if info.IsDir() && !includeHidden && isHidden(info.Name(), path, rootPath) {
 			return filepath.SkipDir
+		}
+
+		// Пропускаем по правилам .dupignore
+		if dupignore.Matches(ign, rootPath, path, info.IsDir()) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			bar.Add(1)
+			return nil
 		}
 
 		// Пропускаем директории и символические ссылки

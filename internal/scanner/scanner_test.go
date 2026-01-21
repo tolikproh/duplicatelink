@@ -3,6 +3,7 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tolikproh/duplicatelink/internal/models"
@@ -179,5 +180,116 @@ func TestFindDuplicates_SkipsSymlinks(t *testing.T) {
 		if files[0].Path != original {
 			t.Fatalf("Ожидался только исходный файл, получено %s", files[0].Path)
 		}
+	}
+}
+
+func TestFindDuplicates_RespectsDupIgnore(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Создаем структуру папок
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	ignoredDir := filepath.Join(tmpDir, "ignored")
+	if err := os.MkdirAll(allowedDir, 0755); err != nil {
+		t.Fatalf("Не удалось создать allowedDir: %v", err)
+	}
+	if err := os.MkdirAll(ignoredDir, 0755); err != nil {
+		t.Fatalf("Не удалось создать ignoredDir: %v", err)
+	}
+
+	// .dupignore: игнорировать папку ignored/
+	ignoreContent := []byte("ignored/\n")
+	if err := os.WriteFile(filepath.Join(tmpDir, ".dupignore"), ignoreContent, 0644); err != nil {
+		t.Fatalf("Не удалось записать .dupignore: %v", err)
+	}
+
+	// Дубликаты в allowed
+	a1 := filepath.Join(allowedDir, "file1.txt")
+	a2 := filepath.Join(allowedDir, "file2.txt")
+	// Такой же файл в ignored
+	i1 := filepath.Join(ignoredDir, "file3.txt")
+	content := []byte("same-data")
+	if err := os.WriteFile(a1, content, 0644); err != nil {
+		t.Fatalf("Не удалось создать файл: %v", err)
+	}
+	if err := os.WriteFile(a2, content, 0644); err != nil {
+		t.Fatalf("Не удалось создать файл: %v", err)
+	}
+	if err := os.WriteFile(i1, content, 0644); err != nil {
+		t.Fatalf("Не удалось создать файл: %v", err)
+	}
+
+	// Выполняем сканирование
+	hashMap := FindDuplicates(tmpDir, "sha1", true)
+	if hashMap == nil {
+		t.Fatalf("FindDuplicates вернул nil")
+	}
+
+	// Проверяем, что игнорируемый файл не попал в результаты
+	for _, files := range hashMap {
+		for _, f := range files {
+			if strings.Contains(f.Path, "/ignored/") {
+				t.Fatalf("Файл из игнорируемой папки попал в результаты: %s", f.Path)
+			}
+		}
+	}
+
+	// Ожидаем одну группу с двумя файлами из allowed
+	found := false
+	for _, files := range hashMap {
+		if len(files) == 2 {
+			paths := []string{files[0].Path, files[1].Path}
+			if (paths[0] == a1 && paths[1] == a2) || (paths[0] == a2 && paths[1] == a1) {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("Ожидалась группа дубликатов только из allowed, но она не найдена")
+	}
+}
+
+func TestDupIgnore_NegationAllowsPhotosAndVideos(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// .dupignore: игнорировать всё, кроме фото и видео
+	lines := []string{
+		"*",
+		"!*.jpg", "!*.jpeg", "!*.png", "!*.gif", "!*.bmp", "!*.webp", "!*.tiff", "!*.tif",
+		"!*.mp4", "!*.mov", "!*.mkv", "!*.avi", "!*.wmv", "!*.flv", "!*.webm", "!*.m4v", "!*.mpg", "!*.mpeg",
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, ".dupignore"), []byte(content), 0644); err != nil {
+		t.Fatalf("Не удалось записать .dupignore: %v", err)
+	}
+
+	files := map[string][]byte{
+		filepath.Join(tmpDir, "photo.jpg"): []byte("img1"),
+		filepath.Join(tmpDir, "video.mp4"): []byte("vid1"),
+		filepath.Join(tmpDir, "doc.txt"):   []byte("text"),
+	}
+	for p, b := range files {
+		if err := os.WriteFile(p, b, 0644); err != nil {
+			t.Fatalf("Не удалось создать файл %s: %v", p, err)
+		}
+	}
+
+	hashMap := FindDuplicates(tmpDir, "sha1", true)
+	// Собираем список включенных путей
+	included := map[string]bool{}
+	for _, arr := range hashMap {
+		for _, fh := range arr {
+			included[fh.Path] = true
+		}
+	}
+
+	if !included[filepath.Join(tmpDir, "photo.jpg")] {
+		t.Fatalf("photo.jpg должен быть включен")
+	}
+	if !included[filepath.Join(tmpDir, "video.mp4")] {
+		t.Fatalf("video.mp4 должен быть включен")
+	}
+	if included[filepath.Join(tmpDir, "doc.txt")] {
+		t.Fatalf("doc.txt должен быть исключен")
 	}
 }

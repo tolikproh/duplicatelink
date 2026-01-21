@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	dupignore "github.com/tolikproh/duplicatelink/internal/dupignore"
 	"github.com/tolikproh/duplicatelink/internal/models"
 )
 
@@ -60,6 +61,9 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 	fmt.Printf("Алгоритм: %s\n", result.Algorithm)
 	fmt.Printf("Групп дубликатов: %d\n", len(result.Duplicates))
 
+	// Загружаем правила игнора из корня исходной папки (.dupignore)
+	ign := dupignore.Load(result.FolderPath)
+
 	// Создаем папку назначения, если не существует
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("ошибка при создании папки назначения: %w", err)
@@ -83,8 +87,21 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 
 		fmt.Printf("\nОбработка группы %d/%d...\n", idx+1, len(result.Duplicates))
 
-		// Выбираем первый файл для сохранения
-		masterFile := group.Files[0]
+		// Отфильтровываем файлы по .dupignore
+		var active []models.FileHash
+		for _, f := range group.Files {
+			if dupignore.Matches(ign, result.FolderPath, f.Path, false) {
+				continue
+			}
+			active = append(active, f)
+		}
+		if len(active) < 1 {
+			// Все файлы в группе игнорируются
+			continue
+		}
+
+		// Выбираем первый неигнорируемый файл для сохранения
+		masterFile := active[0]
 		category := getFileCategory(masterFile.Path)
 
 		// Создаем папку для категории
@@ -138,8 +155,8 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 		mdReport.WriteString(fmt.Sprintf("**Основной файл:** [%s](file://%s)\n\n", filename, destPath))
 		mdReport.WriteString("**Дубликаты (заменены симлинками):**\n\n")
 
-		// Обрабатываем дубликаты
-		for _, duplicate := range group.Files {
+		// Обрабатываем дубликаты (только неигнорируемые)
+		for _, duplicate := range active {
 			// Удаляем дубликат и создаем симлинк
 			removeErr := os.Remove(duplicate.Path)
 			if removeErr != nil {

@@ -1,0 +1,83 @@
+# Пример .dupignore: игнорировать всё, кроме фото и видео
+# Используются исключающие правила '!' (поддерживаются)
+
+# Игнорировать все файлы
+*
+
+# Разрешить фото
+!*.jpg
+!*.jpeg
+!*.png
+!*.gif
+!*.bmp
+!*.webp
+!*.tiff
+!*.tif
+!*.heic
+!*.heif
+!*.jpe
+!*.jfif
+!*.jp2   # JPEG 2000
+!*.j2k   # JPEG 2000 codestream
+!*.jpf   # JPEG 2000
+!*.jpx   # JPEG 2000
+!*.jxr   # JPEG XR
+!*.tga
+!*.avif
+!*.ppm
+!*.pgm
+!*.pbm
+!*.pnm
+!*.exr   # OpenEXR (HDR)
+!*.hdr   # Radiance HDR
+
+# Разрешить RAW-фото (специфичные форматы разных камер)
+!*.cr2   # Canon RAW
+!*.cr3   # Canon RAW (новее)
+!*.nef   # Nikon RAW
+!*.nrw   # Nikon RAW (компресс.)
+!*.arw   # Sony RAW
+!*.sr2   # Sony RAW (старые)
+!*.srw   # Samsung RAW
+!*.raf   # Fujifilm RAW
+!*.orf   # Olympus RAW
+!*.rw2   # Panasonic RAW
+!*.dng   # Adobe Digital Negative
+!*.rwl   # Leica RAW
+!*.pef   # Pentax RAW
+!*.mrw   # Minolta RAW
+!*.kdc   # Kodak RAW
+!*.dcr   # Kodak RAW (старые)
+!*.erf   # Epson RAW
+!*.3fr   # Hasselblad RAW
+!*.iiq   # Phase One RAW
+!*.mos   # Leaf RAW
+!*.x3f   # Sigma RAW
+!*.mef   # Mamiya RAW
+!*.crw   # Canon RAW (старые)
+!*.raw   # Общий RAW (если используется)
+
+# Разрешить видео
+!*.mp4
+!*.mov
+!*.mkv
+!*.avi
+!*.wmv
+!*.flv
+!*.webm
+!*.m4v
+!*.mpg
+!*.mpeg
+!*.3gp
+!*.3g2
+!*.mts
+!*.m2ts
+!*.ts
+!*.ogv
+!*.mxf
+!*.dv
+!*.vob
+!*.rm
+!*.rmvb
+!*.f4v
+!*.mpe
