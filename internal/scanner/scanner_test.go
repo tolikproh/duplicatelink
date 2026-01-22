@@ -162,7 +162,7 @@ func TestFindDuplicates_SkipsSymlinks(t *testing.T) {
 	}
 
 	// Выполняем сканирование
-	hashMap := FindDuplicates(tmpDir, "sha1", false)
+	hashMap := FindDuplicates(tmpDir, "sha1", false, 10)
 
 	if hashMap == nil {
 		t.Fatalf("FindDuplicates вернул nil")
@@ -219,7 +219,7 @@ func TestFindDuplicates_RespectsDupIgnore(t *testing.T) {
 	}
 
 	// Выполняем сканирование
-	hashMap := FindDuplicates(tmpDir, "sha1", true)
+	hashMap := FindDuplicates(tmpDir, "sha1", true, 10)
 	if hashMap == nil {
 		t.Fatalf("FindDuplicates вернул nil")
 	}
@@ -274,7 +274,7 @@ func TestDupIgnore_NegationAllowsPhotosAndVideos(t *testing.T) {
 		}
 	}
 
-	hashMap := FindDuplicates(tmpDir, "sha1", true)
+	hashMap := FindDuplicates(tmpDir, "sha1", true, 10)
 	// Собираем список включенных путей
 	included := map[string]bool{}
 	for _, arr := range hashMap {

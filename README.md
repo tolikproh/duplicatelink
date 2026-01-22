@@ -124,6 +124,7 @@ make run ARGS="-hash sha1 -output results.json /path/to/folder"
 | `-output` | Файл для сохранения результатов в JSON | duplicates.json |
 | `-scan-report` | Файл Markdown отчёта сканирования | scan_report.md |
 | `-include-hidden` | Включить сканирование скрытых папок | false |
+| `-workers` | Количество воркеров для параллельного хеширования (3-10) | 3 |
 
 **Примеры:**
 
@@ -137,10 +138,14 @@ make run ARGS="-hash md5 -output my_duplicates.json -scan-report my_report.md /h
 # Сканирование со скрытыми папками
 make run ARGS="-include-hidden -output full_scan.json /home/user/"
 
+# Сканирование с 5 воркерами для большей производительности
+make run ARGS="-workers 5 -hash sha1 /home/user/Downloads/"
+
 # Напрямую через бинарный файл
 ./bin/duplicatelink -hash sha1 /home/user/Downloads/
 ./bin/duplicatelink -hash md5 -output my_duplicates.json -scan-report my_report.md /home/user/Documents/
 ./bin/duplicatelink -include-hidden -output full_scan.json /home/user/
+./bin/duplicatelink -workers 5 -hash sha1 /home/user/Downloads/
 ```
 
 **Результат:**

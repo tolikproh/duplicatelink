@@ -21,6 +21,7 @@ func main() {
 	scanReport := flag.String("scan-report", "scan_report.md", "Путь для сохранения Markdown отчета сканирования")
 	targetDir := flag.String("target", "", "Папка назначения для перемещения файлов (для режима clean)")
 	restoreFile := flag.String("restore", "", "Путь к JSON файлу восстановления (для режима restore)")
+	workers := flag.Int("workers", 3, "Количество воркеров для параллельного хеширования (3-10)")
 	flag.Parse()
 
 	// Если нет аргументов - выводим справку
@@ -135,6 +136,7 @@ func main() {
 
 	fmt.Printf("Поиск дубликатов в папке: %s\n", folderPath)
 	fmt.Printf("Метод определения: %s\n", strings.ToUpper(*hashAlg))
+	fmt.Printf("Количество воркеров: %d\n", *workers)
 	if !*includeHidden {
 		fmt.Println("Скрытые папки: пропускаются (используйте -include-hidden для их сканирования)")
 	} else {
@@ -142,7 +144,7 @@ func main() {
 	}
 
 	// Ищем дубликаты
-	hashMap := scanner.FindDuplicates(folderPath, *hashAlg, *includeHidden)
+	hashMap := scanner.FindDuplicates(folderPath, *hashAlg, *includeHidden, *workers)
 
 	// Выводим результаты
 	scanner.PrintDuplicates(hashMap, *hashAlg)

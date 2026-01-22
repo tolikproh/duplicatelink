@@ -10,21 +10,58 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/schollz/progressbar/v3"
 	dupignore "github.com/tolikproh/duplicatelink/internal/dupignore"
 	"github.com/tolikproh/duplicatelink/internal/models"
 )
 
-// FindDuplicates ищет дубликаты файлов по выбранному алгоритму хеширования
-func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string][]models.FileHash {
-	hashMap := make(map[string][]models.FileHash)
+// SafeHashMap потокобезопасная структура для хранения результатов хеширования
+type SafeHashMap struct {
+	mu   sync.Mutex
+	data map[string][]models.FileHash
+}
 
+// NewSafeHashMap создает новую потокобезопасную карту с начальной емкостью
+func NewSafeHashMap(capacity int) *SafeHashMap {
+	return &SafeHashMap{
+		data: make(map[string][]models.FileHash, capacity),
+	}
+}
+
+// Add добавляет файл в карту по его хешу
+func (shm *SafeHashMap) Add(hash string, fileHash models.FileHash) {
+	shm.mu.Lock()
+	defer shm.mu.Unlock()
+	shm.data[hash] = append(shm.data[hash], fileHash)
+}
+
+// ToMap возвращает обычную карту (для дальнейшей работы)
+func (shm *SafeHashMap) ToMap() map[string][]models.FileHash {
+	shm.mu.Lock()
+	defer shm.mu.Unlock()
+	return shm.data
+}
+
+// fileJob описывает задачу хеширования файла
+type fileJob struct {
+	path string
+	size int64
+}
+
+// FindDuplicates ищет дубликаты файлов по выбранному алгоритму хеширования с использованием воркеров
+func FindDuplicates(rootPath string, hash string, includeHidden bool, workers int) map[string][]models.FileHash {
 	// Загружаем правила игнора, если есть .dupignore в корне
 	ign := dupignore.Load(rootPath)
 
-	// Первый проход: считаем количество файлов
-	fileCount := 0
+	// Этап 1: Собираем список всех файлов для сканирования
+	fmt.Println("\n=== Этап 1: Сбор списка файлов ===")
+
+	var filesToScan []fileJob
+	var fileCount int64 = 0
+
+	// Первый проход для подсчета файлов
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -54,12 +91,13 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 		return nil
 	}
 
-	// Второй проход: обрабатываем файлы с прогресс-баром
-	bar := progressbar.Default(int64(fileCount), fmt.Sprintf("Сканирование папки (%s)", strings.ToUpper(hash)))
+	// Прогресс-бар для сбора списка файлов
+	collectBar := progressbar.Default(fileCount, "Сбор списка файлов")
 
+	// Второй проход: собираем файлы в список
 	err = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			bar.Add(1)
+			collectBar.Add(1)
 			return nil
 		}
 
@@ -73,7 +111,7 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
-			bar.Add(1)
+			collectBar.Add(1)
 			return nil
 		}
 
@@ -82,21 +120,12 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 			return nil
 		}
 
-		// Вычисляем хеш файла
-		hashValue, err := calculateHash(path, hash)
-		if err != nil {
-			bar.Add(1)
-			return nil
-		}
-
-		// Добавляем файл в карту по хешу
-		hashMap[hashValue] = append(hashMap[hashValue], models.FileHash{
-			Path: path,
-			Hash: hashValue,
-			Size: info.Size(),
+		filesToScan = append(filesToScan, fileJob{
+			path: path,
+			size: info.Size(),
 		})
 
-		bar.Add(1)
+		collectBar.Add(1)
 		return nil
 	})
 
@@ -105,7 +134,60 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool) map[string
 		return nil
 	}
 
-	return hashMap
+	collectBar.Finish()
+	fmt.Printf("Найдено файлов для сканирования: %d\n", len(filesToScan))
+
+	// Этап 2: Хеширование файлов с помощью воркеров
+	fmt.Println("\n=== Этап 2: Хеширование файлов ===")
+	fmt.Printf("Количество воркеров: %d\n", workers)
+
+	// Создаем потокобезопасную карту с начальной емкостью
+	hashMap := NewSafeHashMap(len(filesToScan))
+
+	// Создаем каналы для воркеров
+	jobs := make(chan fileJob, len(filesToScan))
+	var wg sync.WaitGroup
+
+	// Прогресс-бар для хеширования
+	hashBar := progressbar.Default(int64(len(filesToScan)), fmt.Sprintf("Хеширование (%s)", strings.ToUpper(hash)))
+
+	// Запускаем воркеры
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				// Вычисляем хеш файла
+				hashValue, err := calculateHash(job.path, hash)
+				if err != nil {
+					hashBar.Add(1)
+					continue
+				}
+
+				// Добавляем файл в потокобезопасную карту
+				hashMap.Add(hashValue, models.FileHash{
+					Path: job.path,
+					Hash: hashValue,
+					Size: job.size,
+				})
+
+				hashBar.Add(1)
+			}
+		}()
+	}
+
+	// Отправляем задачи воркерам
+	for _, job := range filesToScan {
+		jobs <- job
+	}
+	close(jobs)
+
+	// Ждем завершения всех воркеров
+	wg.Wait()
+	hashBar.Finish()
+
+	fmt.Println("\n=== Сканирование завершено ===")
+	return hashMap.ToMap()
 }
 
 // isHidden проверяет, является ли файл или папка скрытой
