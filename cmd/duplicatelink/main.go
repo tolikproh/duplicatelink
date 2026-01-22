@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/tolikproh/duplicatelink/internal/cleaner"
@@ -84,6 +85,14 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Преобразуем targetDir в абсолютный путь
+		absTargetDir, err := filepath.Abs(*targetDir)
+		if err != nil {
+			fmt.Printf("Ошибка: не удалось преобразовать путь targetDir в абсолютный: %v\n", err)
+			os.Exit(1)
+		}
+		*targetDir = absTargetDir
+
 		// Загружаем результаты из JSON
 		result, err := scanner.LoadResultsFromJSON(*jsonFile)
 		if err != nil {
@@ -113,6 +122,13 @@ func main() {
 	args := flag.Args()
 	if len(args) > 0 {
 		folderPath = args[0]
+	}
+
+	// Преобразуем в абсолютный путь
+	folderPath, err := filepath.Abs(folderPath)
+	if err != nil {
+		fmt.Printf("Ошибка: не удалось преобразовать путь в абсолютный: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Проверяем, что папка существует

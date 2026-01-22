@@ -120,8 +120,14 @@ func FindDuplicates(rootPath string, hash string, includeHidden bool, workers in
 			return nil
 		}
 
+		// Преобразуем путь в абсолютный
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = path // Если не удалось преобразовать, используем исходный путь
+		}
+
 		filesToScan = append(filesToScan, fileJob{
-			path: path,
+			path: absPath,
 			size: info.Size(),
 		})
 
@@ -230,10 +236,34 @@ func calculateHash(filePath string, hash string) (string, error) {
 	}
 }
 
+// formatSize форматирует размер в байтах в читаемый вид
+func formatSize(size int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+		TB = GB * 1024
+	)
+
+	switch {
+	case size >= TB:
+		return fmt.Sprintf("%.2f TB", float64(size)/float64(TB))
+	case size >= GB:
+		return fmt.Sprintf("%.2f GB", float64(size)/float64(GB))
+	case size >= MB:
+		return fmt.Sprintf("%.2f MB", float64(size)/float64(MB))
+	case size >= KB:
+		return fmt.Sprintf("%.2f KB", float64(size)/float64(KB))
+	default:
+		return fmt.Sprintf("%d байт", size)
+	}
+}
+
 // PrintDuplicates выводит найденные дубликаты
 func PrintDuplicates(hashMap map[string][]models.FileHash, hash string) {
 	duplicateCount := 0
 	fileCount := 0
+	var potentialSavings int64 = 0
 
 	// Сортируем ключи для консистентного вывода
 	var hashes []string
@@ -252,6 +282,10 @@ func PrintDuplicates(hashMap map[string][]models.FileHash, hash string) {
 			fmt.Printf("\n=== Дубликат #%d ===\n", duplicateCount)
 			fmt.Printf("%s: %s\n", strings.ToUpper(hash), hashValue)
 			fmt.Printf("Размер: %d байт\n", files[0].Size)
+			// Расчет освобождаемого места: (количество копий - 1) * размер
+			groupSavings := int64(len(files)-1) * files[0].Size
+			potentialSavings += groupSavings
+			fmt.Printf("Освободится при очистке: %s\n", formatSize(groupSavings))
 			fmt.Printf("Файлы:\n")
 
 			for i, file := range files {
@@ -263,6 +297,7 @@ func PrintDuplicates(hashMap map[string][]models.FileHash, hash string) {
 	fmt.Printf("\n=== ИТОГО ===\n")
 	fmt.Printf("Всего файлов обработано: %d\n", fileCount)
 	fmt.Printf("Найдено групп дубликатов: %d\n", duplicateCount)
+	fmt.Printf("Потенциально освободится места: %s (%d байт)\n", formatSize(potentialSavings), potentialSavings)
 }
 
 // SaveResultsToJSON сохраняет результаты сканирования в JSON файл
@@ -305,6 +340,7 @@ func SaveResultsToJSON(hashMap map[string][]models.FileHash, folderPath, hash, o
 func SaveScanReportMarkdown(hashMap map[string][]models.FileHash, folderPath, hash, reportFile string) error {
 	var duplicates []models.DuplicateGroup
 	totalFiles := 0
+	var potentialSavings int64 = 0
 
 	for hashValue, files := range hashMap {
 		totalFiles += len(files)
@@ -315,6 +351,8 @@ func SaveScanReportMarkdown(hashMap map[string][]models.FileHash, folderPath, ha
 				Files:     files,
 				Algorithm: strings.ToUpper(hash),
 			})
+			// Расчет освобождаемого места
+			potentialSavings += int64(len(files)-1) * files[0].Size
 		}
 	}
 
@@ -326,12 +364,16 @@ func SaveScanReportMarkdown(hashMap map[string][]models.FileHash, folderPath, ha
 	b.WriteString(fmt.Sprintf("**Алгоритм:** %s\n\n", strings.ToUpper(hash)))
 	b.WriteString(fmt.Sprintf("**Всего файлов проверено:** %d\n\n", totalFiles))
 	b.WriteString(fmt.Sprintf("**Групп дубликатов:** %d\n\n", len(duplicates)))
+	b.WriteString(fmt.Sprintf("**💾 Потенциально освободится места:** %s (%d байт)\n\n", formatSize(potentialSavings), potentialSavings))
 	b.WriteString("---\n\n")
 
 	for idx, group := range duplicates {
 		b.WriteString(fmt.Sprintf("## Группа %d\n\n", idx+1))
 		b.WriteString(fmt.Sprintf("**Хеш (%s):** `%s`\n\n", strings.ToUpper(hash), group.Hash))
-		b.WriteString(fmt.Sprintf("**Размер:** %d байт\n\n", group.Size))
+		b.WriteString(fmt.Sprintf("**Размер файла:** %d байт\n\n", group.Size))
+		groupSavings := int64(len(group.Files)-1) * group.Size
+		b.WriteString(fmt.Sprintf("**💾 Освободится:** %s (%d байт)\n\n", formatSize(groupSavings), groupSavings))
+		b.WriteString(fmt.Sprintf("**Количество копий:** %d\n\n", len(group.Files)))
 		b.WriteString("**Файлы:**\n\n")
 		for _, f := range group.Files {
 			b.WriteString(fmt.Sprintf("- [%s](file://%s)\n", f.Path, f.Path))

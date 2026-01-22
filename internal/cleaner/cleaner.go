@@ -28,6 +28,29 @@ func AskConfirmation() bool {
 	return response == "y" || response == "yes"
 }
 
+// formatSize форматирует размер в байтах в читаемый вид
+func formatSize(size int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+		TB = GB * 1024
+	)
+
+	switch {
+	case size >= TB:
+		return fmt.Sprintf("%.2f TB", float64(size)/float64(TB))
+	case size >= GB:
+		return fmt.Sprintf("%.2f GB", float64(size)/float64(GB))
+	case size >= MB:
+		return fmt.Sprintf("%.2f MB", float64(size)/float64(MB))
+	case size >= KB:
+		return fmt.Sprintf("%.2f KB", float64(size)/float64(KB))
+	default:
+		return fmt.Sprintf("%d байт", size)
+	}
+}
+
 // getFileCategory определяет категорию файла по расширению
 func getFileCategory(filename string) string {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
@@ -72,6 +95,9 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 	var restoreActions []models.RestoreAction
 	var errorList []models.ErrorInfo
 	var mdReport strings.Builder
+	var totalSpaceFreed int64 = 0
+	var processedGroups int = 0
+	var totalSymlinksCreated int = 0
 
 	mdReport.WriteString("# Отчет об очистке дубликатов\n\n")
 	mdReport.WriteString(fmt.Sprintf("**Дата:** %s\n\n", filepath.Base(targetDir)))
@@ -126,6 +152,21 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 			counter++
 		}
 
+		// Преобразуем destPath в абсолютный путь (на случай если filepath.Join вернул относительный)
+		absDestPath, absErr := filepath.Abs(destPath)
+		if absErr != nil {
+			fmt.Printf("⚠️  Ошибка при получении абсолютного пути для %s: %v\n", destPath, absErr)
+			errorList = append(errorList, models.ErrorInfo{
+				FilePath:  masterFile.Path,
+				Operation: "abs_path",
+				Error:     absErr.Error(),
+				Timestamp: fmt.Sprintf("%d", idx),
+				ErrorType: "abs_path_failed",
+			})
+			continue
+		}
+		destPath = absDestPath
+
 		// Копируем мастер-файл
 		if err := copyFile(masterFile.Path, destPath); err != nil {
 			fmt.Printf("⚠️  Ошибка при копировании %s: %v\n", masterFile.Path, err)
@@ -156,6 +197,8 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 		mdReport.WriteString("**Дубликаты (заменены симлинками):**\n\n")
 
 		// Обрабатываем дубликаты (только неигнорируемые)
+		var groupSpaceFreed int64 = 0
+		var groupSymlinksCreated int = 0
 		for _, duplicate := range active {
 			// Удаляем дубликат и создаем симлинк
 			removeErr := os.Remove(duplicate.Path)
@@ -189,6 +232,10 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 
 			fmt.Printf("✓ Создан симлинк: %s -> %s\n", duplicate.Path, destPath)
 
+			// Подсчитываем освобожденное место (размер файла, так как симлинк почти не занимает места)
+			groupSpaceFreed += duplicate.Size
+			groupSymlinksCreated++
+
 			restoreActions = append(restoreActions, models.RestoreAction{
 				OriginalPath: duplicate.Path,
 				MovedTo:      destPath,
@@ -198,11 +245,29 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 
 			mdReport.WriteString(fmt.Sprintf("- [%s](file://%s)\n", duplicate.Path, duplicate.Path))
 		}
+
+		// Добавляем информацию об освобожденном месте в этой группе
+		if groupSymlinksCreated > 0 {
+			mdReport.WriteString(fmt.Sprintf("\n**💾 Освобождено в этой группе:** %s (%d байт)\n", formatSize(groupSpaceFreed), groupSpaceFreed))
+			mdReport.WriteString(fmt.Sprintf("**Создано симлинков:** %d\n", groupSymlinksCreated))
+			totalSpaceFreed += groupSpaceFreed
+			totalSymlinksCreated += groupSymlinksCreated
+			processedGroups++
+		}
 		mdReport.WriteString("\n")
 	}
 
 	// Сохраняем MD отчет
 	reportPath := filepath.Join(targetDir, "cleanup_report.md")
+
+	// Добавляем итоговую статистику
+	mdReport.WriteString("\n---\n\n")
+	mdReport.WriteString("# 📋 Итоговая статистика\n\n")
+	mdReport.WriteString(fmt.Sprintf("**Обработано групп:** %d\n\n", processedGroups))
+	mdReport.WriteString(fmt.Sprintf("**Создано симлинков:** %d\n\n", totalSymlinksCreated))
+	mdReport.WriteString(fmt.Sprintf("**💾 Всего освобождено места:** %s (%d байт)\n\n", formatSize(totalSpaceFreed), totalSpaceFreed))
+	mdReport.WriteString("\n")
+
 	// Добавляем раздел с ошибками, если они были
 	if len(errorList) > 0 {
 		mdReport.WriteString("\n---\n\n")
@@ -225,6 +290,12 @@ func CleanDuplicates(result *models.ScanResult, targetDir string) error {
 		mdReport.WriteString("\n---\n\n✅ **Все файлы обработаны успешно без ошибок!**\n\n")
 		fmt.Println("\n✅ Все файлы обработаны успешно без ошибок!")
 	}
+
+	// Выводим итоговую статистику в консоль
+	fmt.Printf("\n=== ИТОГОВАЯ СТАТИСТИКА ===\n")
+	fmt.Printf("Обработано групп: %d\n", processedGroups)
+	fmt.Printf("Создано симлинков: %d\n", totalSymlinksCreated)
+	fmt.Printf("💾 Всего освобождено места: %s (%d байт)\n", formatSize(totalSpaceFreed), totalSpaceFreed)
 
 	// Сохраняем MD отчет
 	if err := os.WriteFile(reportPath, []byte(mdReport.String()), 0644); err != nil {
